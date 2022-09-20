@@ -5,7 +5,7 @@ import dask.array as da
 import numpy as np
 import pandas as pd
 import xarray as xr
-from distributed.utils import parse_bytes
+from dask.utils import parse_bytes
 
 
 def timeseries(

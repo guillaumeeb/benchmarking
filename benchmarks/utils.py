@@ -7,11 +7,10 @@ from time import sleep, time
 import fsspec
 import pandas as pd
 from distributed import Client
-from distributed.utils import format_bytes
+from dask.utils import format_bytes
 from fsspec.implementations.local import LocalFileSystem
 
 from . import __version__
-from .conda_env_export import env_dump
 from .datasets import timeseries
 from .ops import (
     anomaly,
@@ -50,21 +49,6 @@ class DiagnosticTimer:
         return pd.DataFrame(self.diagnostics)
 
 
-def cluster_wait(client, n_workers):
-    """ Delay process until all workers in the cluster are available. """
-    start = time()
-    wait_thresh = 600
-    worker_thresh = n_workers * 0.95
-
-    while len(client.cluster.scheduler.workers) < n_workers:
-        sleep(2)
-        elapsed = time() - start
-        # If we are getting close to timeout but cluster is mostly available,
-        # just break out
-        if elapsed > wait_thresh and len(client.cluster.scheduler.workers) >= worker_thresh:
-            break
-
-
 class Runner:
     def __init__(self, input_file):
         import yaml
@@ -81,43 +65,48 @@ class Runner:
         self.operations['read'] = [openfile, readfile]
         self.client = None
 
-    def create_cluster(self, job_scheduler, maxcore, walltime, memory, queue, wpn):
-        """ Creates a dask cluster using dask_jobqueue """
-        logger.warning('Creating a dask cluster using dask_jobqueue')
-        logger.warning(f'Job Scheduler: {job_scheduler}')
-        logger.warning(f'Memory size for each node: {memory}')
-        logger.warning(f'Number of cores for each node: {maxcore}')
-        logger.warning(f'Number of workers for each node: {wpn}')
+    def create_cluster(self, cluster_manager, processes=1, **cluster_kwargs):
+        """ Creates a Dask cluster using dask_jobqueue or dask_gateway """
+        logger.warning('Creating a Dask cluster')
+        logger.warning(f'Cluster Manager: {cluster_manager}')
+        logger.warning(f'Kwargs: {cluster_kwargs}')
+        
+        if cluster_manager in ('pbs', 'slurm'):
 
-        from dask_jobqueue import PBSCluster, SLURMCluster
+            from dask_jobqueue import PBSCluster, SLURMCluster
 
-        job_schedulers = {'pbs': PBSCluster, 'slurm': SLURMCluster}
+            job_schedulers = {'pbs': PBSCluster, 'slurm': SLURMCluster}
 
-        # Note about OMP_NUM_THREADS=1, --threads 1:
-        # These two lines are to ensure that each benchmark workers
-        # only use one threads for benchmark.
-        # in the job script one sees twice --nthreads,
-        # but it get overwritten by --nthreads 1
-        cluster = job_schedulers[job_scheduler](
-            cores=maxcore,
-            memory=memory,
-            processes=wpn,
-            local_directory='$TMPDIR',
-            interface='ib0',
-            queue=queue,
-            walltime=walltime,
-            env_extra=['OMP_NUM_THREADS=1'],
-            extra=['--nthreads 1'],
-        )
+            # Note about OMP_NUM_THREADS=1, --threads 1:
+            # These two lines are to ensure that each benchmark workers
+            # only use one threads for benchmark.
+            # in the job script one sees twice --nthreads,
+            # but it get overwritten by --nthreads 1
+            cluster = job_schedulers[cluster_manager](
+                processes=proecesses,
+                local_directory='$TMPDIR',
+                interface='ib0',
+                env_extra=['OMP_NUM_THREADS=1'],
+                extra=['--nthreads 1'],
+                **cluster_kwargs
+            )
+
+            logger.warning(
+                '************************************\n'
+                'Job script created by dask_jobqueue:\n'
+                f'{cluster.job_script()}\n'
+                '***************************************'
+            )
+        elif cluster_manager == 'gateway':
+            if processes > 1:
+                logger.warning(f'Processing kwarg of value {processes} will be ignored with dask-gateway clusters.')
+            from dask_gateway import Gateway
+            gateway = Gateway()
+            cluster = gateway.new_cluster(**cluster_kwargs)
+        else:
+            raise ValueError(f"Unkown Cluster Manager: {cluster_manager}")
 
         self.client = Client(cluster)
-
-        logger.warning(
-            '************************************\n'
-            'Job script created by dask_jobqueue:\n'
-            f'{cluster.job_script()}\n'
-            '***************************************'
-        )
         logger.warning(f'Dask cluster dashboard_link: {self.client.cluster.dashboard_link}')
 
     def run(self):
@@ -125,11 +114,8 @@ class Runner:
         logger.warning('Reading configuration YAML config file')
         operation_choice = self.params['operation_choice']
         machine = self.params['machine']
-        job_scheduler = self.params['job_scheduler']
-        queue = self.params['queue']
-        walltime = self.params['walltime']
-        maxmemory_per_node = self.params['maxmemory_per_node']
-        maxcore_per_node = self.params['maxcore_per_node']
+        cluster_manager = self.params['cluster_manager']
+        cluster_kwargs = self.params['cluster_kwargs']
         chunk_per_worker = self.params['chunk_per_worker']
         freq = self.params['freq']
         spil = self.params['spil']
@@ -146,21 +132,17 @@ class Runner:
         filesystems = parameters['filesystem']
         fixed_totalsize = parameters['fixed_totalsize']
         chsz = parameters['chunk_size']
-        local_dir = self.params['local_dir']
+        #TODO Dump the environment somewhere
         env_export_filename = f"{output_dir}/env_export_{now.strftime('%Y-%m-%d_%H-%M-%S')}.yml"
-        env_dump('./binder/environment.yml', env_export_filename)
         for wpn in num_workers:
             self.create_cluster(
-                job_scheduler=job_scheduler,
-                maxcore=maxcore_per_node,
-                walltime=walltime,
-                memory=maxmemory_per_node,
-                queue=queue,
-                wpn=wpn,
+                cluster_manager=cluster_manager,
+                processes=wpn,
+                **cluster_kwargs
             )
             for num in num_nodes:
                 self.client.cluster.scale(num * wpn)
-                cluster_wait(self.client, num * wpn)
+                self.client.wait_for_workers(n_workers=num * wpn, timeout=1800)
                 timer = DiagnosticTimer()
                 logger.warning(
                     '#####################################################################\n'
@@ -197,6 +179,7 @@ class Runner:
                                 root = f'{bucket}'
                             elif filesystem == 'posix':
                                 fs = LocalFileSystem()
+                                local_dir = self.params['local_dir']
                                 root = local_dir
                                 if not os.path.isdir(f'{root}'):
                                     os.makedirs(f'{root}')
@@ -244,10 +227,9 @@ class Runner:
                                         filesystem=filesystem,
                                         root=root,
                                         machine=machine,
-                                        maxmemory_per_node=maxmemory_per_node,
-                                        maxcore_per_node=maxcore_per_node,
                                         spil=spil,
                                         version=__version__,
+                                        **cluster_kwargs
                                     ):
                                         fname = f'{chunk_size}{chunking_scheme}{filesystem}{num}'
                                         if op.__name__ == 'writefile':

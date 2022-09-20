@@ -1,23 +1,20 @@
+operation_choice: readwrite
 machine: cheyenne
-cluster_manager: pbs
+cluster_manager: gateway
 cluster_kwargs:
-  queue: regular
-  walltime: 1:00:00
-  memory: 109gb
-  cores: 36
+  worker_memory: 4
 chunk_per_worker: 10
 spil: false
+freq: 1D
 parameters:
+  fixed_totalsize: False
   number_of_workers_per_nodes:
     - 1
-  number_of_threads_per_workers: 1
   number_of_nodes:
     - 1
-    - 2
     - 4
     - 8
     - 16
-    - 24
     - 32
   chunk_size:
     - 32MB
@@ -26,8 +23,13 @@ parameters:
     - 256MB
     - 512MB
     - 1024MB
-    - 2048MB
   chunking_scheme:
-    - spatial
     - temporal
     - auto
+  io_format:
+    - zarr
+  filesystem:
+    - s3
+profile: default
+bucket: pangeo-benchmarking
+endpoint_url: https://object-store.cloud.muni.cz

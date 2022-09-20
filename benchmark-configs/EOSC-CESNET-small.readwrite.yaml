@@ -1,0 +1,27 @@
+operation_choice: readwrite
+machine: cheyenne
+cluster_manager: gateway
+cluster_kwargs:
+  worker_memory: 4
+chunk_per_worker: 2
+spil: false
+freq: 1D
+parameters:
+  fixed_totalsize: False
+  number_of_workers_per_nodes:
+    - 1
+  number_of_nodes:
+    - 1
+    - 4
+  chunk_size:
+    - 32MB
+    - 64MB
+  chunking_scheme:
+    - temporal
+  io_format:
+    - zarr
+  filesystem:
+    - s3
+profile: default
+bucket: pangeo-benchmarking
+endpoint_url: https://object-store.cloud.muni.cz

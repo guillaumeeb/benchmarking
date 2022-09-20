@@ -53,7 +53,7 @@ To run the benchmarks, a command utility `pangeobench` is provided in this repos
 To use it to benchmark Pangeo computation, you need to specify subcommand `run` and the location of the benchmark configuration
 
 ```bash
-./pangebench run benchmark-configs/cheyenne.computation.yaml
+./pangeobench run benchmark-configs/cheyenne.computation.yaml
 ```
 
 
@@ -72,7 +72,7 @@ First, create data files:
 ```
 Second, upload data files to S3 object store if you need to benchmark S3 object store:
 ```bash
-./pangebench upload --config_file benchmark-configs/cheyenne.write.yaml
+./pangeobench upload --config_file benchmark-configs/cheyenne.write.yaml
 ```
 
 Last, read data files:
