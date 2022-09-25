@@ -1,6 +1,8 @@
 import datetime
 import logging
 import os
+import uuid
+import zipfile
 from contextlib import contextmanager
 from time import sleep, time
 
@@ -9,6 +11,8 @@ import pandas as pd
 from distributed import Client
 from dask.utils import format_bytes
 from fsspec.implementations.local import LocalFileSystem
+from distributed.diagnostics.plugin import WorkerPlugin
+from dask.utils import tmpfile
 
 from . import __version__
 from .datasets import timeseries
@@ -47,6 +51,9 @@ class DiagnosticTimer:
     def dataframe(self):
 
         return pd.DataFrame(self.diagnostics)
+
+
+
 
 
 class Runner:
@@ -108,6 +115,74 @@ class Runner:
 
         self.client = Client(cluster)
         logger.warning(f'Dask cluster dashboard_link: {self.client.cluster.dashboard_link}')
+        
+        if cluster_manager == 'gateway':
+            #We need to upload benchmarking Python files to use them on worker side
+            #This added plugin must be a closure for it to work on worker side (can't be a class declared in this file
+            class UploadDirectoryWorker(WorkerPlugin):
+                """A WorkerPlugin to upload a local directory to workers.
+
+                Parameters
+                ----------
+                path: str
+                    A path to the directory to upload
+
+                Examples
+                --------
+                >>> from distributed.diagnostics.plugin import UploadDirectoryWorker
+                >>> client.register_worker_plugin(UploadDirectoryWorker("/path/to/directory"))  # doctest: +SKIP
+                """
+
+                def __init__(
+                    self,
+                    path,
+                    restart=False,
+                    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
+                    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
+                ):
+                    """
+                    Initialize the plugin by reading in the data from the given file.
+                    """
+                    path = os.path.expanduser(path)
+                    self.path = os.path.split(path)[-1]
+                    self.restart = restart
+
+                    self.name = "upload-directory-" + os.path.split(path)[-1]
+
+                    with tmpfile(extension="zip") as fn:
+                        with zipfile.ZipFile(fn, "w", zipfile.ZIP_DEFLATED) as z:
+                            for root, dirs, files in os.walk(path):
+                                for file in files:
+                                    filename = os.path.join(root, file)
+                                    if any(predicate(filename) for predicate in skip):
+                                        continue
+                                    dirs = filename.split(os.sep)
+                                    if any(word in dirs for word in skip_words):
+                                        continue
+
+                                    archive_name = os.path.relpath(
+                                        os.path.join(root, file), os.path.join(path, "..")
+                                    )
+                                    z.write(filename, archive_name)
+
+                        with open(fn, "rb") as f:
+                            self.data = f.read()
+
+                async def setup(self, worker):
+                    fn = os.path.join(worker.local_directory, f"tmp-{uuid.uuid4()}.zip")
+                    with open(fn, "wb") as f:
+                        f.write(self.data)
+
+                    import zipfile
+
+                    with zipfile.ZipFile(fn) as z:
+                        z.extractall(path=worker.local_directory)
+
+                    os.remove(fn)
+            
+            logger.warning(f'Uploading directory {os.path.dirname(__file__)}')
+            plugin = UploadDirectoryWorker(os.path.dirname(__file__))
+            self.client.register_worker_plugin(plugin)
 
     def run(self):
 
@@ -143,6 +218,7 @@ class Runner:
             for num in num_nodes:
                 self.client.cluster.scale(num * wpn)
                 self.client.wait_for_workers(n_workers=num * wpn, timeout=1800)
+                
                 timer = DiagnosticTimer()
                 logger.warning(
                     '#####################################################################\n'
@@ -165,13 +241,21 @@ class Runner:
                                         f'### Skipping NetCDF S3 {operation_choice} benchmarking ###\n'
                                     )
                                     continue
+                                
                                 profile = self.params['profile']
                                 bucket = self.params['bucket']
                                 endpoint_url = self.params['endpoint_url']
+                                    
+                                #We need to get access/secret keys from the Client notebook AWS credential files.
+                                #In the cloud, we have no guarantee that workers will have those files, so we
+                                #need to passe those keys directly to the S3 filesystem object.
+                                import boto3
+                                session = boto3.Session(profile_name='default')
                                 fs = fsspec.filesystem(
                                     's3',
-                                    profile=profile,
                                     anon=False,
+                                    key=session.get_credentials().access_key, 
+                                    secret=session.get_credentials().secret_key,
                                     client_kwargs={'endpoint_url': endpoint_url},
                                     skip_instance_cache=True,
                                     use_listings_cache=True,
@@ -212,6 +296,7 @@ class Runner:
                                 logger.warning(f'Dataset total size: {dataset_size}')
 
                                 for op in self.operations[operation_choice]:
+                                    logger.warning(f'Operation begin: {op}')
                                     with timer.time(
                                         'runtime',
                                         operation=op.__name__,
@@ -240,6 +325,7 @@ class Runner:
                                             ds = op(fs, io_format, root, filename)
                                         else:
                                             op(ds)
+                                    logger.warning(f'Operation done: {op}')
                         # kills ds, and every other dependent computation
                         logger.warning('Computation done')
                         self.client.cancel(ds)

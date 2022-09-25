@@ -1,5 +1,5 @@
 operation_choice: readwrite
-machine: cheyenne
+machine: EOSC-CESNET
 cluster_manager: gateway
 cluster_kwargs:
   worker_memory: 4
