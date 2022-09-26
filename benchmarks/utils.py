@@ -1,8 +1,6 @@
 import datetime
 import logging
 import os
-import uuid
-import zipfile
 from contextlib import contextmanager
 from time import sleep, time
 
@@ -11,8 +9,7 @@ import pandas as pd
 from distributed import Client
 from dask.utils import format_bytes
 from fsspec.implementations.local import LocalFileSystem
-from distributed.diagnostics.plugin import WorkerPlugin
-from dask.utils import tmpfile
+from distributed.diagnostics.plugin import UploadDirectory
 
 from . import __version__
 from .datasets import timeseries
@@ -118,71 +115,9 @@ class Runner:
         
         if cluster_manager == 'gateway':
             #We need to upload benchmarking Python files to use them on worker side
-            #This added plugin must be a closure for it to work on worker side (can't be a class declared in this file
-            class UploadDirectoryWorker(WorkerPlugin):
-                """A WorkerPlugin to upload a local directory to workers.
-
-                Parameters
-                ----------
-                path: str
-                    A path to the directory to upload
-
-                Examples
-                --------
-                >>> from distributed.diagnostics.plugin import UploadDirectoryWorker
-                >>> client.register_worker_plugin(UploadDirectoryWorker("/path/to/directory"))  # doctest: +SKIP
-                """
-
-                def __init__(
-                    self,
-                    path,
-                    restart=False,
-                    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
-                    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
-                ):
-                    """
-                    Initialize the plugin by reading in the data from the given file.
-                    """
-                    path = os.path.expanduser(path)
-                    self.path = os.path.split(path)[-1]
-                    self.restart = restart
-
-                    self.name = "upload-directory-" + os.path.split(path)[-1]
-
-                    with tmpfile(extension="zip") as fn:
-                        with zipfile.ZipFile(fn, "w", zipfile.ZIP_DEFLATED) as z:
-                            for root, dirs, files in os.walk(path):
-                                for file in files:
-                                    filename = os.path.join(root, file)
-                                    if any(predicate(filename) for predicate in skip):
-                                        continue
-                                    dirs = filename.split(os.sep)
-                                    if any(word in dirs for word in skip_words):
-                                        continue
-
-                                    archive_name = os.path.relpath(
-                                        os.path.join(root, file), os.path.join(path, "..")
-                                    )
-                                    z.write(filename, archive_name)
-
-                        with open(fn, "rb") as f:
-                            self.data = f.read()
-
-                async def setup(self, worker):
-                    fn = os.path.join(worker.local_directory, f"tmp-{uuid.uuid4()}.zip")
-                    with open(fn, "wb") as f:
-                        f.write(self.data)
-
-                    import zipfile
-
-                    with zipfile.ZipFile(fn) as z:
-                        z.extractall(path=worker.local_directory)
-
-                    os.remove(fn)
-            
-            logger.warning(f'Uploading directory {os.path.dirname(__file__)}')
-            plugin = UploadDirectoryWorker(os.path.dirname(__file__))
-            self.client.register_worker_plugin(plugin)
+            logger.warning(f'Uploading directory {here}')
+            plugin = UploadDirectory(here, restart=True, update_path=True)
+            self.client.register_worker_plugin(plugin, nanny=True)
 
     def run(self):
 

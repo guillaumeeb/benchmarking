@@ -1,0 +1,9 @@
+operation,fixed_totalsize,chunk_size,chunk_per_worker,dataset_size,worker_per_node,threads_per_worker,num_nodes,chunking_scheme,io_format,filesystem,root,machine,spil,version,worker_memory,runtime,dask,distributed,fsspec,gcsfs,netCDF4,numpy,pandas,s3fs,xarray,zarr
+writefile,False,32MB,2,75.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,40.57333040237427,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+openfile,False,32MB,2,75.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,2.8290905952453613,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+readfile,False,32MB,2,75.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,1.1352343559265137,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+deletefile,False,32MB,2,75.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,1.2147369384765625,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+writefile,False,64MB,2,150.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,39.94281983375549,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+openfile,False,64MB,2,150.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,2.578951835632324,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+readfile,False,64MB,2,150.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,1.867366075515747,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
+deletefile,False,64MB,2,150.05 MiB,1,1,1,temporal,zarr,s3,pangeo-benchmarking,EOSC-CESNET-small,False,0.0.0,4,1.0949342250823975,2022.7.0,2022.7.0,2022.5.0,2022.5.0,1.6.0,1.23.1,1.4.3,2022.5.0,2022.6.0,2.12.0
