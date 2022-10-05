@@ -3,9 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - click
-  - dask-jobqueue
+  - dask-jobqueue>=0.8.0
   - dask-labextension
-  - dask>=2.3
+  - dask>=2022.7.1
   - fsspec>=0.7.3
   - holoviews
   - hvplot
@@ -16,7 +16,7 @@ dependencies:
   - nodejs
   - numpy
   - pandas
-  - python=3.7
+  - python=3.9
   - s3fs>=0.4.2
   - scipy
   - setuptools

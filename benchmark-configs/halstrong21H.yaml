@@ -1,12 +1,18 @@
+operation_choice: readwrite
 machine: hal1H
-job_scheduler: pbs
-queue: batch
-walltime: 1:00:00
-maxmemory_per_node: 128gb
-maxcore_per_node: 24
+cluster_manager: pbs
+cluster_kwargs:
+  queue: batch
+  walltime: 1:00:00
+  memory: 128gb
+  cores: 24
+  local_directory: "$TMPDIR"
+  interface: "ib0"
 chunk_per_worker: 10
 spil: false
+freq: 1D
 parameters:
+  fixed_totalsize: False
   number_of_workers_per_nodes:
     - 1
   number_of_threads_per_workers: 1
@@ -18,3 +24,9 @@ parameters:
     - spatial
     - temporal
     - auto
+  io_format:
+    - zarr
+    - netcdf
+  filesystem:
+    - posix
+local_dir: test_21H

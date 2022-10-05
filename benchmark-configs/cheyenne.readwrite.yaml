@@ -1,10 +1,13 @@
 operation_choice: readwrite
 machine: cheyenne
-job_scheduler: pbs
-queue: regular
-walltime: 1:00:00
-maxmemory_per_node: 109gb
-maxcore_per_node: 36
+cluster_manager: pbs
+cluster_kwargs:
+  queue: regular
+  walltime: 1:00:00
+  memory: 109gb
+  cores: 36
+  local_directory: "$TMPDIR"
+  interface: "ib0"
 chunk_per_worker: 10
 spil: false
 freq: 1D

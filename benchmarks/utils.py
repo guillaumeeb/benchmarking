@@ -69,7 +69,7 @@ class Runner:
         self.operations['read'] = [openfile, readfile]
         self.client = None
 
-    def create_cluster(self, cluster_manager, processes=1, **cluster_kwargs):
+    def create_cluster(self, cluster_manager, processes=1, nthreads=1, **cluster_kwargs):
         """ Creates a Dask cluster using dask_jobqueue or dask_gateway """
         logger.warning('Creating a Dask cluster')
         logger.warning(f'Cluster Manager: {cluster_manager}')
@@ -87,11 +87,9 @@ class Runner:
             # in the job script one sees twice --nthreads,
             # but it get overwritten by --nthreads 1
             cluster = job_schedulers[cluster_manager](
-                processes=proecesses,
-                local_directory='$TMPDIR',
-                interface='ib0',
-                env_extra=['OMP_NUM_THREADS=1'],
-                extra=['--nthreads 1'],
+                processes=processes,
+                worker_extra_args=[f"--nthreads {nthreads}"],
+                job_script_prologue=['OMP_NUM_THREADS=1'],
                 **cluster_kwargs
             )
 
@@ -148,6 +146,7 @@ class Runner:
             self.create_cluster(
                 cluster_manager=cluster_manager,
                 processes=wpn,
+                nthreads=num_threads,
                 **cluster_kwargs
             )
             for num in num_nodes:

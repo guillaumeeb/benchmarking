@@ -3,15 +3,16 @@
 Benchmarking &amp; Scaling Studies of the Pangeo Platform
 
 - [Benchmarking](#benchmarking)
-  - [Creating an Environment](#creating-an-environment)
+  - [Creating an Environment on an HPC Center](#creating-an-environment-on-an-hpc-center)
+  - [Environment on a Kubernetes based system](#environment-on-a-kubernetes-based-system)
   - [Benchmark Configuration](#benchmark-configuration)
   - [Running the Benchmarks](#running-the-benchmarks)
   - [Benchmark Results](#benchmark-results)
   - [Visualization](#visualization)
 
-## Creating an Environment
+## Creating an Environment on an HPC Center
 
-To run the benchmarks, it's recommended to create a dedicated conda environment by running:
+To run the benchmarks on an HPC platform, it's recommended to create a dedicated conda environment by running:
 
 ```bash
 conda env create -f ./binder/environment.yml
@@ -31,33 +32,31 @@ and then run the post build script:
 ./binder/postBuild
 ```
 
+## Environment on a Kubernetes based system
+
+To run the benchmark on any Cloud platform using Kubernetes, it is recommanded to use [pangeo/pangeo-notebook Docker image](https://github.com/pangeo-data/pangeo-docker-images/tree/master/pangeo-notebook).
+
+This package currently assumes a Dask Gateway cluster is available from the Kubernetes environment.
+
 ## Benchmark Configuration
 
-The `benchmark-configs` directory contains YAML files that are used to run benchmarks on different machines. So far, the following HPC systems' configs are provided:
-
-```bash
-$ tree ./benchmark-configs/
-benchmark-configs/
-├── cheyenne.yaml
-└── hal.yaml
-└── wrangler.yaml
-
-```
+The `benchmark-configs` directory contains YAML files that are used to run benchmarks on different machines. So far, HPC systems config have been provided for several clusters: Cheyenne from NCAR, HAL from CNES, Wrangler from TACC. It also contains configurations for CESNET Center based on a Kubernetes deployment over Openstack. There might be several configurations for each center.
 
 In case you are interested in running the benchmarks on another system, you will need to create a new YAML file for your system with the right configurations. See the existing config files for reference.
 
 ## Running the Benchmarks
+
 ### from command line
 
 To run the benchmarks, a command utility `pangeobench` is provided in this repository.
-To use it to benchmark Pangeo computation, you need to specify subcommand `run` and the location of the benchmark configuration
+To use it to benchmark Pangeo computation, you need to specify subcommand `run` and the location of the benchmark configuration.
 
 ```bash
-./pangeobench run benchmark-configs/cheyenne.computation.yaml
+./pangeobench run benchmark-configs/cheyenne.pri2.yaml
 ```
 
 
-To use it to benchmark Pangeo IO with weak scaling analysis, you need to specify subcommand `run` and the location of the benchmark configuration
+To use it to benchmark Pangeo IO with weak scaling analysis, you need to specify subcommand `run` and the location of the benchmark configuration.
 
 
 ```bash
@@ -91,8 +90,8 @@ Commands:
   run     Run benchmarking
   upload  Upload benchmarking files from local directory to S3 object store
 ```
-## Running the Benchmarks
-### from jupyter notebook.
+
+### from Jupyter notebook.
 
 To run the benchmarks from jupyter notebook, install 'pangeo-bench' kernel to your jupyter notebook enviroment, then start run.ipynb notebook.  You will need to specify the configuration file as described above in your notebook.
 
